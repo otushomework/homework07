@@ -1,7 +1,16 @@
 language: cpp
 sudo: required
+before_install:
+  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+  - sudo apt-get update -qq
+install:
+  - sudo apt-get install g++-6 cmake
+  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 90
 before_script:
   - ls
+  - gcc --version
+  - g++ --version
+  - cmake --version
 script:
   - cmake .
   - cmake --build .
