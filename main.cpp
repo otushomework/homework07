@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <set>
+#include <memory>
 
 //#define _DEBUG
 
@@ -12,22 +13,28 @@ private:
 
     struct Node;
     struct NodeComparator {
-        bool operator()(Node const *a, Node const *b) {
+        bool operator()(std::unique_ptr<Node> const &a, std::unique_ptr<Node> const &b) {
             return a->label < b->label;
         }
     };
 
     struct Node {
         std::string label;
-        int isEnd;
-        std::set<Node *, NodeComparator> childs;
+        bool isEnd;
+        std::set<std::unique_ptr<Node>, NodeComparator> childs;
 
-        Node() = default;
+        Node(const std::string &label, int isEnd, std::set<std::unique_ptr<Node>, NodeComparator> childs = std::set<std::unique_ptr<Node>, NodeComparator>())
+            : label(label)
+            , isEnd(isEnd)
+            , childs(std::move(childs))
+        {
+        }
+
         ~Node()
         {
-            for ( Node *child : childs )
-                delete child;
-
+#ifdef _DEBUG
+            std::cout << "delete " << label << " " << isEnd << std::endl;
+#endif
             childs.clear();
         }
 
@@ -51,23 +58,25 @@ private:
                 if (equalPart.length() == 0 && depth > 0)
                     return false;
 
-                Node *childNode = new Node{label.substr(equalPart.length()), isEnd, childs};
+                auto childNode = std::make_unique<Node>(label.substr(equalPart.length()), isEnd, std::move(childs));
                 label = equalPart;
                 isEnd = equalPart.length() == word.length();
+
+                //childs are empty now, because we move their memory to created 'childNode'. Right? =)
                 childs.clear();
-                childs.insert(childNode);
+                childs.insert(std::move(childNode));
 
                 if (equalPart.length() == 0)
-                    childs.insert(new Node{word, true});
+                    childs.insert(std::make_unique<Node>(word, true));
 
                 if (equalPart.length() > 0 && depth > 0 && equalPart.length() != word.length())
-                    childs.insert(new Node{word.substr(equalPart.length()), true});
+                    childs.insert(std::make_unique<Node>(word.substr(equalPart.length()), true));
 
                 return true;
             }
 
             depth++;
-            for ( Node *child : childs )
+            for ( auto &child : childs )
             {
                 std::string subWord = word.substr(equalPart.length());
                 bool res = child->insert(subWord, depth);
@@ -75,25 +84,23 @@ private:
                     return true;
             }
 
-            childs.insert(new Node{word.substr(equalPart.length()), true});
+            childs.insert(std::make_unique<Node>(word.substr(equalPart.length()), true));
             return true;
         }
     };
 
-    Node *m_root = nullptr;
+    std::unique_ptr<Node> m_root;
 public:
     RadixTree() = default;
 
     ~RadixTree()
-    {
-        delete m_root;
-    }
+    { }
 
     void insert(std::string &word)
     {
         if (m_root == nullptr)
         {
-            m_root = new Node{word, true};
+            m_root = std::make_unique<Node>(word, true);
 #ifdef _DEBUG
             std::cout << "Create first node" << std::endl;
 #endif
@@ -107,7 +114,7 @@ public:
     void toTree(Node *node = nullptr, int depth = 0, bool quotes = false)
     {
         if (node == nullptr)
-            node = m_root;
+            node = m_root.get();
 
         //if user try to print empty tree
         if (node == nullptr)
@@ -122,14 +129,14 @@ public:
         std::cout << space << (quotes ? "\"" : "") << node->label << (quotes ? "\"" : "") << (node->isEnd ? "$" : "") << std::endl;
 
         depth++;
-        for ( Node *child : node->childs )
-            toTree(child, depth);
+        for ( auto &child : node->childs )
+            toTree(child.get(), depth);
     }
 
     void toList(Node *node = nullptr, std::string parentLabel = std::string())
     {
         if (node == nullptr)
-            node = m_root;
+            node = m_root.get();
 
         //if user try to print empty tree
         if (node == nullptr)
@@ -138,8 +145,8 @@ public:
         if (node->isEnd)
             std::cout << (parentLabel + node->label) << " " << (parentLabel + node->label == parentLabel ? parentLabel + node->label : parentLabel + node->label[0] ) << std::endl;
 
-        for ( Node *child : node->childs )
-            toList(child, parentLabel + node->label);
+        for ( auto &child : node->childs )
+            toList(child.get(), parentLabel + node->label);
     }
 };
 
