@@ -5,6 +5,7 @@
 #include <memory>
 
 //#define _DEBUG
+//#define _DEFDATA
 
 
 struct RadixTree
@@ -40,9 +41,15 @@ private:
 
         bool insert(std::string &word, int depth = 0)
         {
+#ifdef _DEBUG
+            std::cout << "Start insert '" << word << "' into node '" << label << "'" << std::endl;
+#endif
             std::string equalPart;
             for (int i = 0; i < static_cast<int>(std::min(word.length(), label.length())); ++i)
             {
+#ifdef _DEBUG
+                std::cout << "  " << word.at(i) << " == " << label.at(i) << " -> " << (word.at(i) == label.at(i)) << std::endl;
+#endif
                 if (word.at(i) == label.at(i))
                     equalPart += word.at(i);
                 else
@@ -56,7 +63,12 @@ private:
             if (equalPart.length() < label.length())
             {
                 if (equalPart.length() == 0 && depth > 0)
+                {
+#ifdef _DEBUG
+                    std::cout << "equalPart is empty: '" << equalPart << "'" << std::endl;
+#endif
                     return false;
+                }
 
                 auto childNode = std::make_unique<Node>(label.substr(equalPart.length()), isEnd, std::move(childs));
                 label = equalPart;
@@ -69,7 +81,7 @@ private:
                 if (equalPart.length() == 0)
                     childs.insert(std::make_unique<Node>(word, true));
 
-                if (equalPart.length() > 0 && depth > 0 && equalPart.length() != word.length())
+                if (equalPart.length() > 0 && equalPart.length() != word.length())
                     childs.insert(std::make_unique<Node>(word.substr(equalPart.length()), true));
 
                 return true;
@@ -102,7 +114,7 @@ public:
         {
             m_root = std::make_unique<Node>(word, true);
 #ifdef _DEBUG
-            std::cout << "Create first node" << std::endl;
+            std::cout << "Create first node " << word << std::endl;
 #endif
         }
         else
@@ -151,11 +163,12 @@ public:
 };
 
 //$ nickname < testdata.txt
+//cyrillic test: echo -e "Данил\nДенис\nДаша" | iconv -t cp1251 | ./nickname | iconv -f cp1251
 int main(int, char *[])
 {
     RadixTree tree;
 
-#ifdef _DEBUG
+#ifdef _DEFDATA
     std::ifstream file;
     file.open("testdata.txt");
     for(std::string line; std::getline(file, line);)
